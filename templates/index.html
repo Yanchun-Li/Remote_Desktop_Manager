@@ -340,63 +340,72 @@
         let currentDesktopId = null;
         let currentDesktopName = '';
 
-        // Fetch and render all desktops
-        async function fetchAndRenderDesktops() {
-            try {
-                const response = await fetch('/api/desktops');
-                const data = await response.json();
-                renderDesktops(data.desktops);
-            } catch (error) {
-                console.error('Error fetching desktops:', error);
-            }
-        }
-
-        // Render all desktops
-        function renderDesktops(desktops) {
-            const grid = document.getElementById('desktopGrid');
-            grid.innerHTML = '';
-            
-            desktops.forEach(desktop => {
-                const card = document.createElement('div');
-                card.className = 'desktop-card';
-                card.id = `desktop-${desktop.id}`;
+        function updateTimeRemaining(desktop) {
+            if (desktop.status === 'in-use' && desktop.loginTime) {
+                const loginTime = new Date(desktop.loginTime);
+                const now = new Date();
+                const diff = now - loginTime;
                 
-                const statusClass = desktop.status === 'available' ? 'status-available' : 'status-in-use';
-                const statusText = desktop.status === 'available' ? 'Available' : 'In Use';
+                // 12 hours in milliseconds
+                const maxTime = 12 * 60 * 60 * 1000;
+                const remaining = maxTime - diff;
                 
-                let timeRemaining = '';
-                if (desktop.loginTime) {
-                    const loginTime = new Date(desktop.loginTime);
-                    const now = new Date();
-                    const remaining = 12 * 60 * 60 * 1000 - (now - loginTime);
-                    if (remaining > 0) {
-                        const hours = Math.floor(remaining / (60 * 60 * 1000));
-                        const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-                        timeRemaining = `<p class="time-remaining">Time Remaining: ${hours}h ${minutes}m</p>`;
-                    }
+                if (remaining <= 0) {
+                    // 如果超过12小时，自动登出
+                    logout(desktop.id);
+                    return;
                 }
                 
-                card.innerHTML = `
-                    <div class="desktop-header">
-                        <span class="desktop-name">${desktop.name}</span>
-                        <div class="desktop-actions">
-                            <button type="button" class="rename-button" title="Rename" onclick="showRenameForm(${desktop.id}, '${desktop.name.replace(/'/g, "\\'")}')">✏️</button>
-                            <button type="button" class="delete-button" title="Delete" onclick="deleteDesktop(${desktop.id})">🗑️</button>
-                        </div>
-                    </div>
-                    <span class="status ${statusClass}">${statusText}</span>
-                    <div class="user-info">
-                        <p>Current User: ${desktop.user || 'None'}</p>
-                        ${timeRemaining}
-                    </div>
-                    <button class="action-button ${desktop.status === 'in-use' ? 'logout' : ''}" 
-                            onclick="${desktop.status === 'available' ? `showLoginForm(${desktop.id})` : `logout(${desktop.id})`}">
-                        ${desktop.status === 'available' ? 'Use Desktop' : 'Logout'}
-                    </button>
-                `;
+                const hours = Math.floor(remaining / (60 * 60 * 1000));
+                const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+                const seconds = Math.floor((remaining % (60 * 1000)) / 1000);
                 
-                grid.appendChild(card);
-            });
+                return `Time Remaining: ${hours}h ${minutes}m ${seconds}s`;
+            }
+            return '';
+        }
+
+        function fetchAndRenderDesktops() {
+            fetch('/api/desktops')
+                .then(response => response.json())
+                .then(data => {
+                    const desktopsContainer = document.getElementById('desktopGrid');
+                    desktopsContainer.innerHTML = '';
+                    
+                    data.desktops.forEach(desktop => {
+                        const card = document.createElement('div');
+                        card.className = 'desktop-card';
+                        
+                        const statusClass = desktop.status === 'available' ? 'available' : 'in-use';
+                        const statusText = desktop.status === 'available' ? 'Available' : 'In Use';
+                        const timeRemaining = updateTimeRemaining(desktop);
+                        
+                        card.innerHTML = `
+                            <div class="desktop-header">
+                                <span class="desktop-name">${desktop.name}</span>
+                                <div class="desktop-actions">
+                                    <button type="button" class="rename-button" title="Rename" onclick="showRenameForm(${desktop.id}, '${desktop.name.replace(/'/g, "\\'")}')">✏️</button>
+                                    <button type="button" class="delete-button" title="Delete" onclick="deleteDesktop(${desktop.id})">🗑️</button>
+                                </div>
+                            </div>
+                            <span class="status ${statusClass}">${statusText}</span>
+                            <div class="user-info">
+                                <p>Current User: ${desktop.user || 'None'}</p>
+                                ${timeRemaining}
+                            </div>
+                            <button class="action-button ${desktop.status === 'in-use' ? 'logout' : ''}" 
+                                    onclick="${desktop.status === 'available' ? `showLoginForm(${desktop.id})` : `logout(${desktop.id})`}">
+                                ${desktop.status === 'available' ? 'Use Desktop' : 'Logout'}
+                            </button>
+                        `;
+                        
+                        desktopsContainer.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load desktops');
+                });
         }
 
         function showLoginForm(desktopId) {
@@ -571,8 +580,8 @@
             renameDesktop();
         });
 
-        // Update display every minute
-        setInterval(fetchAndRenderDesktops, 60000);
+        // 每秒更新一次时间显示
+        setInterval(fetchAndRenderDesktops, 1000);
 
         // Initial load
         fetchAndRenderDesktops();

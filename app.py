@@ -41,6 +41,17 @@ def index():
 @app.route('/api/desktops', methods=['GET'])
 def get_desktops():
     desktops = load_desktops()
+    # 检查是否需要自动登出
+    current_time = datetime.now()
+    for desktop in desktops:
+        if desktop['status'] == 'in-use' and desktop['loginTime']:
+            login_time = datetime.fromisoformat(desktop['loginTime'])
+            # 12小时超时
+            if (current_time - login_time) > timedelta(hours=12):
+                desktop['status'] = 'available'
+                desktop['user'] = None
+                desktop['loginTime'] = None
+    save_desktops(desktops)
     return jsonify({'desktops': desktops})
 
 @app.route('/api/desktops', methods=['POST'])
@@ -91,7 +102,8 @@ def login_desktop(desktop_id):
     
     desktop['status'] = 'in-use'
     desktop['user'] = username
-    desktop['loginTime'] = datetime.now().isoformat()
+    # 使用 UTC 时间
+    desktop['loginTime'] = datetime.utcnow().isoformat()
     
     save_desktops(desktops)
     return jsonify({'success': True, 'desktop': desktop})
