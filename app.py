@@ -146,7 +146,6 @@ def rename_desktop(desktop_id):
     if not desktop:
         return jsonify({'success': False, 'message': 'Desktop not found'}), 404
     
-    # 检查新名称是否与其他桌面重复（排除当前桌面）
     if any(d.get('name', '').lower() == new_name.lower() and d['id'] != desktop_id for d in desktops['desktops']):
         return jsonify({'success': False, 'message': 'A desktop with this name already exists'}), 400
     
