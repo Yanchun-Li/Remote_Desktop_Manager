@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# 使用环境变量获取端口，如果没有则使用5000
-PORT = int(os.environ.get('PORT', 5000))
+# 使用环境变量获取端口，如果没有则使用10000
+PORT = int(os.environ.get('PORT', 10000))
 
 # 使用环境变量获取主机地址，如果没有则使用0.0.0.0
 HOST = os.environ.get('HOST', '0.0.0.0')
