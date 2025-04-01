@@ -31,4 +31,4 @@ This project is configured for deployment on Render.com. Simply connect your Git
 
 - Python
 - Flask
-- HTML/CSS/JavaScript 
+- HTML/CSS/JavaScript
