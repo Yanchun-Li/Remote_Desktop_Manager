@@ -168,7 +168,7 @@ def delete_desktop(desktop_id):
 @app.route('/api/desktops/<int:desktop_id>/rename', methods=['POST'])
 def rename_desktop(desktop_id):
     data = request.get_json()
-    new_name = data.get('newName')
+    new_name = data.get('name')
     
     if not new_name:
         return jsonify({'success': False, 'message': 'New name is required'}), 400
