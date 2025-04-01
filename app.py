@@ -50,6 +50,7 @@ def create_default_desktops():
             {
                 'id': 1,
                 'name': 'Remote Desktop 1',
+                'url': 'https://remotedesktop.gooogle.com/access',
                 'status': 'available',
                 'user': None,
                 'loginTime': None
@@ -96,9 +97,13 @@ def get_desktops():
 def add_desktop():
     data = request.get_json()
     name = data.get('name')
+    url = data.get('url')
     
     if not name:
         return jsonify({'success': False, 'message': 'Name is required'}), 400
+    
+    if not url:
+        return jsonify({'success': False, 'message': 'URL is required'}), 400
     
     desktops = init_desktops()
     # 检查名称是否重复
@@ -110,6 +115,7 @@ def add_desktop():
     new_desktop = {
         'id': new_id,
         'name': name,
+        'url': url,
         'status': 'available',
         'user': None,
         'loginTime': None
