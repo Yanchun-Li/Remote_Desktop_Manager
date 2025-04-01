@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# 使用环境变量获取端口，如果没有则使用10000
-PORT = int(os.environ.get('PORT', 10000))
+# 使用环境变量获取端口，如果没有则使用5000
+PORT = int(os.environ.get('PORT', 5000))
 
 # 使用环境变量获取主机地址，如果没有则使用0.0.0.0
 HOST = os.environ.get('HOST', '0.0.0.0')
@@ -24,22 +24,25 @@ def init_desktops():
                     return {'desktops': data}
                 elif isinstance(data, dict) and 'desktops' in data:
                     return data
-                return {'desktops': []}
+                return create_default_desktops()
         except (json.JSONDecodeError, FileNotFoundError):
             # 如果文件损坏或不存在，返回默认数据
             return create_default_desktops()
-    return create_default_desktops()
+    # 如果文件不存在，创建默认数据并保存
+    default_data = create_default_desktops()
+    save_desktops(default_data)
+    return default_data
 
 def create_default_desktops():
     return {
         'desktops': [
             {
-                'id': i,
-                'name': f'Remote Desktop {i}',
+                'id': 1,
+                'name': 'Remote Desktop 1',
                 'status': 'available',
                 'user': None,
                 'loginTime': None
-            } for i in range(1, 11)
+            }
         ]
     }
 

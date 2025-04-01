@@ -442,7 +442,7 @@
                                     });
                                 })
                                 .catch(error => console.error('Error updating countdown:', error));
-                        }, 60000); // 改为60000毫秒（1分钟）
+                        }, 60000); // 每分钟更新一次
                     }
                 })
                 .catch(error => console.error('Error checking active desktops:', error));
