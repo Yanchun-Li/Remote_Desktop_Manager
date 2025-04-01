@@ -376,7 +376,7 @@
                         const card = document.createElement('div');
                         card.className = 'desktop-card';
                         
-                        const statusClass = desktop.status === 'available' ? 'available' : 'in-use';
+                        const statusClass = desktop.status === 'available' ? 'status-available' : 'status-in-use';
                         const statusText = desktop.status === 'available' ? 'Available' : 'In Use';
                         const timeRemaining = updateTimeRemaining(desktop);
                         
@@ -393,7 +393,7 @@
                                 <p>Current User: ${desktop.user || 'None'}</p>
                                 ${timeRemaining}
                             </div>
-                            <button class="action-button ${desktop.status === 'in-use' ? 'logout' : ''}" 
+                            <button class="action-button ${desktop.status === 'in-use' ? 'logout' : 'available'}" 
                                     onclick="${desktop.status === 'available' ? `showLoginForm(${desktop.id})` : `logout(${desktop.id})`}">
                                 ${desktop.status === 'available' ? 'Use Desktop' : 'Logout'}
                             </button>
