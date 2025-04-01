@@ -14,6 +14,17 @@ HOST = os.environ.get('HOST', '0.0.0.0')
 # 数据文件路径
 DATA_FILE = 'desktops.json'
 
+# 设置超时时间（小时）
+TIMEOUT_HOURS = 12
+
+def get_current_time():
+    """获取当前UTC时间"""
+    return datetime.utcnow()
+
+def format_time(dt):
+    """格式化时间为ISO格式，确保包含时区信息"""
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
 def init_desktops():
     if os.path.exists(DATA_FILE):
         try:
@@ -64,11 +75,17 @@ def index():
 def get_desktops():
     data = init_desktops()
     # 检查是否需要自动登出
-    current_time = datetime.now()
+    current_time = get_current_time()
     for desktop in data['desktops']:
         if desktop['loginTime']:
-            login_time = datetime.fromisoformat(desktop['loginTime'])
-            if (current_time - login_time) > timedelta(hours=12):
+            try:
+                login_time = datetime.strptime(desktop['loginTime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+                if (current_time - login_time) > timedelta(hours=TIMEOUT_HOURS):
+                    desktop['status'] = 'available'
+                    desktop['user'] = None
+                    desktop['loginTime'] = None
+            except (ValueError, TypeError):
+                # 如果时间格式不正确，重置状态
                 desktop['status'] = 'available'
                 desktop['user'] = None
                 desktop['loginTime'] = None
@@ -112,7 +129,7 @@ def login_desktop(desktop_id):
         username = request.json.get('username', 'Anonymous')
         desktop['status'] = 'in-use'
         desktop['user'] = username
-        desktop['loginTime'] = datetime.now().isoformat()
+        desktop['loginTime'] = format_time(get_current_time())
         save_desktops(data)
         return jsonify({'success': True})
     return jsonify({'success': False, 'message': 'Desktop not available'})
