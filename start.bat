@@ -1,0 +1,3 @@
+@echo off
+echo Starting Remote Desktop Manager...
+python app.py 
