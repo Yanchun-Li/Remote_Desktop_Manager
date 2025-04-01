@@ -277,16 +277,16 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1>Remote Desktop Manager</h1>
-        <div class="header-buttons">
-            <button class="action-button" onclick="showAddDesktopForm()">Add Desktop</button>
-        </div>
-    </header>
-
     <div class="container">
-        <div class="desktop-grid" id="desktopGrid">
-            <!-- Desktop cards will be dynamically generated -->
+        <header>
+            <h1>Remote Desktop Manager</h1>
+            <div class="header-buttons">
+                <button class="action-button" onclick="showAddDesktopForm()">Add Desktop</button>
+            </div>
+        </header>
+        
+        <div id="desktopGrid" class="desktop-grid">
+            <!-- Desktop cards will be dynamically added here -->
         </div>
     </div>
 
@@ -341,31 +341,26 @@
         let currentDesktopName = '';
 
         function updateTimeRemaining(desktop) {
-            if (desktop.status === 'in-use' && desktop.loginTime) {
-                const loginTime = new Date(desktop.loginTime);
-                const now = new Date();
-                const diff = now - loginTime;
-                
-                // 12 hours in milliseconds
-                const maxTime = 12 * 60 * 60 * 1000;
-                const remaining = maxTime - diff;
-                
-                if (remaining <= 0) {
-                    // 如果超过12小时，自动登出
-                    logout(desktop.id);
-                    return;
-                }
-                
-                const hours = Math.floor(remaining / (60 * 60 * 1000));
-                const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-                const seconds = Math.floor((remaining % (60 * 1000)) / 1000);
-                
-                return `Time Remaining: ${hours}h ${minutes}m ${seconds}s`;
+            if (!desktop.loginTime) return '';
+            
+            const loginTime = new Date(desktop.loginTime);
+            const currentTime = new Date();
+            const maxTime = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+            const elapsed = currentTime - loginTime;
+            const remaining = maxTime - elapsed;
+            
+            if (remaining <= 0) {
+                logout(desktop.id);
+                return '';
             }
-            return '';
+            
+            const hours = Math.floor(remaining / (60 * 60 * 1000));
+            const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+            
+            return `Time Remaining: ${hours}h ${minutes}m`;
         }
 
-        function fetchAndRenderDesktops() {
+        function updateDesktopStatus() {
             fetch('/api/desktops')
                 .then(response => response.json())
                 .then(data => {
@@ -375,6 +370,7 @@
                     data.desktops.forEach(desktop => {
                         const card = document.createElement('div');
                         card.className = 'desktop-card';
+                        card.id = `desktop-${desktop.id}`;
                         
                         const statusClass = desktop.status === 'available' ? 'status-available' : 'status-in-use';
                         const statusText = desktop.status === 'available' ? 'Available' : 'In Use';
@@ -391,14 +387,13 @@
                             <span class="status ${statusClass}">${statusText}</span>
                             <div class="user-info">
                                 <p>Current User: ${desktop.user || 'None'}</p>
-                                ${timeRemaining}
+                                <div class="time-remaining" id="time-${desktop.id}">${timeRemaining}</div>
                             </div>
                             <button class="action-button ${desktop.status === 'in-use' ? 'logout' : 'available'}" 
                                     onclick="${desktop.status === 'available' ? `showLoginForm(${desktop.id})` : `logout(${desktop.id})`}">
                                 ${desktop.status === 'available' ? 'Use Desktop' : 'Logout'}
                             </button>
                         `;
-                        
                         desktopsContainer.appendChild(card);
                     });
                 })
@@ -407,6 +402,57 @@
                     alert('Failed to load desktops');
                 });
         }
+
+        // 添加全局定时器来更新所有倒计时
+        let countdownInterval;
+
+        function startCountdown() {
+            // 清除可能存在的旧定时器
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            // 检查是否有正在使用的桌面
+            fetch('/api/desktops')
+                .then(response => response.json())
+                .then(data => {
+                    const hasActiveDesktops = data.desktops.some(desktop => desktop.loginTime);
+                    
+                    if (hasActiveDesktops) {
+                        // 只在有活动桌面时启动定时器，每分钟更新一次
+                        countdownInterval = setInterval(() => {
+                            fetch('/api/desktops')
+                                .then(response => response.json())
+                                .then(data => {
+                                    const activeDesktops = data.desktops.filter(desktop => desktop.loginTime);
+                                    
+                                    // 如果没有活动桌面了，清除定时器
+                                    if (activeDesktops.length === 0) {
+                                        clearInterval(countdownInterval);
+                                        countdownInterval = null;
+                                        return;
+                                    }
+                                    
+                                    // 更新活动桌面的倒计时
+                                    activeDesktops.forEach(desktop => {
+                                        const timeElement = document.getElementById(`time-${desktop.id}`);
+                                        if (timeElement) {
+                                            timeElement.textContent = updateTimeRemaining(desktop);
+                                        }
+                                    });
+                                })
+                                .catch(error => console.error('Error updating countdown:', error));
+                        }, 60000); // 改为60000毫秒（1分钟）
+                    }
+                })
+                .catch(error => console.error('Error checking active desktops:', error));
+        }
+
+        // 在页面加载时启动倒计时
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDesktopStatus();
+            startCountdown();
+        });
 
         function showLoginForm(desktopId) {
             currentDesktopId = desktopId;
@@ -458,7 +504,8 @@
                 const data = await response.json();
                 if (data.success) {
                     hideLoginForm();
-                    fetchAndRenderDesktops();
+                    updateDesktopStatus();
+                    startCountdown(); // 重新启动倒计时
                 } else {
                     alert('Failed to login: ' + data.message);
                 }
@@ -475,7 +522,17 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    fetchAndRenderDesktops();
+                    updateDesktopStatus();
+                    // 检查是否还有其他活动桌面
+                    fetch('/api/desktops')
+                        .then(response => response.json())
+                        .then(data => {
+                            const hasActiveDesktops = data.desktops.some(desktop => desktop.loginTime);
+                            if (!hasActiveDesktops && countdownInterval) {
+                                clearInterval(countdownInterval);
+                                countdownInterval = null;
+                            }
+                        });
                 } else {
                     alert('Failed to logout: ' + data.message);
                 }
@@ -493,7 +550,7 @@
                     });
                     const data = await response.json();
                     if (data.success) {
-                        fetchAndRenderDesktops();
+                        updateDesktopStatus();
                     } else {
                         alert('Failed to delete desktop');
                     }
@@ -523,7 +580,7 @@
                 if (data.success) {
                     hideAddDesktopForm();
                     document.getElementById('desktopName').value = '';
-                    fetchAndRenderDesktops();
+                    updateDesktopStatus();
                 } else {
                     alert(data.message || 'Failed to add desktop');
                 }
@@ -552,7 +609,7 @@
             .then(data => {
                 if (data.success) {
                     hideRenameForm();
-                    fetchAndRenderDesktops();
+                    updateDesktopStatus();
                 } else {
                     alert(data.message || 'Failed to rename desktop');
                 }
@@ -579,12 +636,6 @@
             e.preventDefault();
             renameDesktop();
         });
-
-        // 每秒更新一次时间显示
-        setInterval(fetchAndRenderDesktops, 1000);
-
-        // Initial load
-        fetchAndRenderDesktops();
     </script>
 </body>
 </html> 
