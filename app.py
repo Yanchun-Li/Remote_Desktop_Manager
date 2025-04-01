@@ -16,14 +16,21 @@ DATA_FILE = 'desktops.json'
 
 def init_desktops():
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r') as f:
-            data = json.load(f)
-            # 确保返回的是正确的数据结构
-            if isinstance(data, list):
-                return {'desktops': data}
-            elif isinstance(data, dict) and 'desktops' in data:
-                return data
-            return {'desktops': []}
+        try:
+            with open(DATA_FILE, 'r') as f:
+                data = json.load(f)
+                # 确保返回的是正确的数据结构
+                if isinstance(data, list):
+                    return {'desktops': data}
+                elif isinstance(data, dict) and 'desktops' in data:
+                    return data
+                return {'desktops': []}
+        except (json.JSONDecodeError, FileNotFoundError):
+            # 如果文件损坏或不存在，返回默认数据
+            return create_default_desktops()
+    return create_default_desktops()
+
+def create_default_desktops():
     return {
         'desktops': [
             {
@@ -37,8 +44,14 @@ def init_desktops():
     }
 
 def save_desktops(data):
-    with open(DATA_FILE, 'w') as f:
-        json.dump(data, f)
+    try:
+        with open(DATA_FILE, 'w') as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"Error saving desktops: {e}")
+        # 如果保存失败，至少确保内存中的数据是正确的
+        return data
+    return data
 
 @app.route('/')
 def index():
