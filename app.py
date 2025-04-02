@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 import json
 import os
 from datetime import datetime, timedelta
+import time
 
 app = Flask(__name__)
 
@@ -192,6 +193,35 @@ def rename_desktop(desktop_id):
     save_desktops(desktops)
     
     return jsonify({'success': True, 'desktop': desktop})
+
+@app.route('/api/desktops/<int:desktop_id>/window-event', methods=['POST'])
+def handle_window_event(desktop_id):
+    data = request.get_json()
+    event_type = data.get('eventType')
+    
+    if event_type == 'unload':
+        # 设置一个10秒的延迟登出
+        def delayed_logout():
+            time.sleep(10)
+            data = init_desktops()
+            desktop = next((d for d in data['desktops'] if d['id'] == desktop_id), None)
+            if desktop and desktop['status'] == 'in-use':
+                desktop['status'] = 'available'
+                desktop['user'] = None
+                desktop['loginTime'] = None
+                save_desktops(data)
+        
+        # 在新线程中执行延迟登出
+        import threading
+        thread = threading.Thread(target=delayed_logout)
+        thread.start()
+        return jsonify({'success': True})
+    
+    elif event_type == 'load':
+        # 如果收到load事件，说明是刷新，不需要登出
+        return jsonify({'success': True})
+    
+    return jsonify({'success': False, 'message': 'Invalid event type'}), 400
 
 if __name__ == '__main__':
     app.run(host=HOST, port=PORT) 
